@@ -1,2 +1,6 @@
 /.env
 /venv
+/embeddings.txt
+/results.txt
+/train-*
+/__pycache__
