@@ -4,7 +4,7 @@
 import pyarrow.parquet as pq
 import time
 from embedding import create_embeddings_openai
-from vectordb import upsert_pinecone_index, query_pinecone_index
+from pinecone_utils import upsert_pinecone_index, query_pinecone_index
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
 def test_openai_pinecone_time():
