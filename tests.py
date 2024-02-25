@@ -54,16 +54,17 @@ def test_pinecone_upsert_time():
     print(f'Pinecone upsert took {end - start} seconds')
 
 '''
-OpenAI embeddings took 1.7578818999463692 seconds
-Pinecone query took 1.0369013999588788 seconds
-Total time: 2.794783299905248 seconds
-2004
-Wave (physics)
-Wigan Athletic F.C.
-Web
-Water
+OpenAI embeddings took 0.8059008000418544 seconds
+Pinecone query took 1.0907004999462515 seconds
+Total time: 1.896601299988106 seconds
 
-Results are not accurate
+Results:
+-----------
+Aquaculture
+Farm
+Farming
+Fish
+Census of Marine Life
 '''
 def test_pinecone_query_time(query):
 
@@ -85,7 +86,7 @@ def test_pinecone_query_time(query):
 
 # test_openai_pinecone_time()
 # test_pinecone_upsert_time()
-test_pinecone_query_time('What do I call the farming of seafood?')
+test_pinecone_query_time(['What do I call the farming of seafood?'])
 
 
 
