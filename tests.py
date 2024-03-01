@@ -3,11 +3,11 @@
 
 import pyarrow.parquet as pq
 import time
-from embedding import create_embeddings_openai
+from embedding import create_embeddings_openai, create_embeddings_angle
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
-def test_openai_pinecone_time():
+def test_openai_embedding_time():
     wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
     wikipedia = wikipedia[:1000]
     wikipedia = wikipedia[['title', 'text']]
@@ -22,6 +22,29 @@ def test_openai_pinecone_time():
     with open('embeddings.txt', 'w') as f:
         for item in embeddings:
             f.write("%s\n" % item)
+
+# AnglE embeddings took 82.96513290004805 seconds (Non-GPU machine)
+def test_angle_embedding_time():
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    wikipedia = wikipedia[['title', 'text']]
+    labelled = []
+    for row in wikipedia['text']:
+        labelled.append({'text': row[1]})
+
+    start = time.perf_counter()
+    embeddings = create_embeddings_angle(labelled)
+    end = time.perf_counter()
+
+    print(f'AnglE embeddings took {end - start} seconds')
+
+# AnglE query embeddings took 5.134554299991578 seconds (Non-GPU machine)
+# Seems like the model takes a while to load
+def test_angle_query_embedding_time(query):
+    start = time.perf_counter()
+    embeddings = create_embeddings_angle([{'text': query}])
+    end = time.perf_counter()
+    print(f'AnglE query embeddings took {end - start} seconds')
 
 # Pinecone upsert took 29.51726290001534 seconds
 def test_pinecone_upsert_time():
@@ -84,9 +107,10 @@ def test_pinecone_query_time(query):
     for item in response.matches:
         print(item.id)
 
-# test_openai_pinecone_time()
+# test_openai_embedding_time()
+test_angle_query_embedding_time('What do I call the farming of seafood?')
 # test_pinecone_upsert_time()
-test_pinecone_query_time(['What do I call the farming of seafood?'])
+# test_pinecone_query_time(['What do I call the farming of seafood?'])
 
 
 
