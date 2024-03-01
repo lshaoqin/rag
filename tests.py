@@ -81,6 +81,7 @@ OpenAI embeddings took 0.8059008000418544 seconds
 Pinecone query took 1.0907004999462515 seconds
 Total time: 1.896601299988106 seconds
 
+Question: What do I call the farming of seafood?
 Results:
 -----------
 Aquaculture
@@ -107,10 +108,21 @@ def test_pinecone_query_time(query):
     for item in response.matches:
         print(item.id)
 
+def setup_milvus_for_AnglE():
+    connect_to_milvus()
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+    ]
+    description = "AnglE embeddings"
+    create_milvus_collection("AnglE", fields, description)
+    # upsert_milvus(embeddings, "openai")
+    # create_milvus_index("openai", "embedding", "IVF_FLAT", "L2")
+    # query_milvus(embeddings, "openai", 10, {"nprobe": 16})
+
 # test_openai_embedding_time()
 test_angle_query_embedding_time('What do I call the farming of seafood?')
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
-
-
 

@@ -35,3 +35,16 @@ def query_milvus(query_entities, name, top_k, params):
     collection = Collection(name)
     query_result = collection.query(query_entities, top_k, params)
     return query_result
+
+if __name__ == "__main__":
+    connect_to_milvus()
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+    ]
+    description = "AnglE embeddings"
+    create_milvus_collection("AnglE", fields, description)
+    # upsert_milvus(embeddings, "openai")
+    # create_milvus_index("openai", "embedding", "IVF_FLAT", "L2")
+    # query_milvus(embeddings, "openai", 10, {"nprobe": 16})
