@@ -5,6 +5,8 @@ import pyarrow.parquet as pq
 import time
 from embedding import create_embeddings_openai, create_embeddings_angle
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
+from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus
+from pymilvus import FieldSchema, DataType
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
 def test_openai_embedding_time():
@@ -115,14 +117,51 @@ def setup_milvus_for_AnglE():
         FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
         FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
     ]
-    description = "AnglE embeddings"
-    create_milvus_collection("AnglE", fields, description)
-    # upsert_milvus(embeddings, "openai")
-    # create_milvus_index("openai", "embedding", "IVF_FLAT", "L2")
-    # query_milvus(embeddings, "openai", 10, {"nprobe": 16})
+    description = "Openai embeddings"
+    create_milvus_collection("openai", fields, description)
+
+def test_milvus_upsert_time():
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    labels = wikipedia[['title']]
+
+    for label in labels:
+        # remove non-ascii characters
+        labels.loc[:, label] = labels[label].str.encode('ascii', 'ignore').str.decode('ascii')
+
+    embeddings = []
+    with open('embeddings.txt', 'r') as f:
+        for line in f:
+            embeddings.append(line.strip())
+
+    embeddings = [[float(value) for value in embedding[1:-2].split(", ")] for embedding in embeddings]
+
+    # join the labels and embeddings
+    items = []
+    for i in range(len(labels)):
+        items.append((labels.iloc[i]['title'], embeddings[i]))
+
+    start = time.perf_counter()
+    upsert_milvus(items, "openai")
+    create_milvus_index("openai", "embedding", "IVF_FLAT", "L2")
+    end = time.perf_counter()
+
+    print(f'Milvus upsert took {end - start} seconds')
+
+def test_milvus_query_time(query):
+    embeddings = create_embeddings_openai([query])
+
+    start = time.perf_counter()
+    result = query_milvus(embeddings, "openai", 10, {"nprobe": 16})
+    end = time.perf_counter()
+
+    print(f'Milvus query took {end - start} seconds')
+    print(result)
 
 # test_openai_embedding_time()
-test_angle_query_embedding_time('What do I call the farming of seafood?')
+# test_angle_query_embedding_time('What do I call the farming of seafood?')
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
+test_milvus_upsert_time()
+test_milvus_query_time('What do I call the farming of seafood?')
 
