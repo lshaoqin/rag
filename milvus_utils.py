@@ -26,15 +26,14 @@ def upsert_milvus(entities, name):
     insert_result = collection.insert(entities)
     return insert_result
 
-def create_milvus_index(name, field_name, index_type, metric_type):
-    collection = Collection(name)
-    index = collection.create_index(field_name, index_type, metric_type)
-    return index
+def create_milvus_index(collection_name, field_name, index_type, metric_type, params):
+    collection = Collection(collection_name)
+    index = {"index_type": index_type, "metric_type": metric_type, "params": params}
+    collection.create_index(field_name, index)
 
-def query_milvus(query_entities, name, top_k, params):
-    collection = Collection(name)
-    query_result = collection.query(query_entities, top_k, params)
-    return query_result
+def query_milvus(collection, search_vectors, search_field, search_params):
+    result = collection.search(search_vectors, search_field, search_params, limit=3, output_fields=["title"])
+    return result[0]
 
 if __name__ == "__main__":
     connect_to_milvus()

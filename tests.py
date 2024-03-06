@@ -2,11 +2,13 @@
 # For this, we will use the Simple Wikipedia dataset at https://huggingface.co/datasets/wikimedia/wikipedia/tree/main/20231101.simple
 
 import pyarrow.parquet as pq
+import numpy as np
 import time
 from embedding import create_embeddings_openai, create_embeddings_angle
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
-from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus
-from pymilvus import FieldSchema, DataType
+from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus, drop_milvus_collection
+from pymilvus import FieldSchema, DataType, Collection
+import torch
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
 def test_openai_embedding_time():
@@ -37,6 +39,8 @@ def test_angle_embedding_time():
     start = time.perf_counter()
     embeddings = create_embeddings_angle(labelled)
     end = time.perf_counter()
+
+    torch.save(embeddings, 'embeddings_angle.pt')
 
     print(f'AnglE embeddings took {end - start} seconds')
 
@@ -114,12 +118,15 @@ def setup_milvus_for_AnglE():
     connect_to_milvus()
     fields = [
         FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
-        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=1024),
         FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
     ]
-    description = "Openai embeddings"
-    create_milvus_collection("openai", fields, description)
+    description = "AnglE embeddings"
 
+    drop_milvus_collection("angle")
+    create_milvus_collection("angle", fields, description)
+
+# Milvus upsert took 1.2594313000008697 seconds
 def test_milvus_upsert_time():
     wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
     wikipedia = wikipedia[:1000]
@@ -129,30 +136,40 @@ def test_milvus_upsert_time():
         # remove non-ascii characters
         labels.loc[:, label] = labels[label].str.encode('ascii', 'ignore').str.decode('ascii')
 
-    embeddings = []
-    with open('embeddings.txt', 'r') as f:
-        for line in f:
-            embeddings.append(line.strip())
-
-    embeddings = [[float(value) for value in embedding[1:-2].split(", ")] for embedding in embeddings]
+    embeddings = torch.load('embeddings_angle.pt')
 
     # join the labels and embeddings
-    items = []
-    for i in range(len(labels)):
-        items.append((labels.iloc[i]['title'], embeddings[i]))
+    entries = [
+        [str(i) for i in range(len(labels))],
+        embeddings.tolist(),
+        labels['title'].tolist()
+    ]
+
+    connect_to_milvus()
 
     start = time.perf_counter()
-    upsert_milvus(items, "openai")
-    create_milvus_index("openai", "embedding", "IVF_FLAT", "L2")
+    upsert_milvus(entries, "angle")
+    create_milvus_index("angle", "embeddings", "IVF_FLAT", "L2", {"nlist": 128})
     end = time.perf_counter()
 
     print(f'Milvus upsert took {end - start} seconds')
 
+'''
+Milvus query took 0.24138000000675675 seconds
+["id: 916, distance: 203.069091796875, entity: {'title': 'Million'}", 
+"id: 3, distance: 203.3989715576172, entity: {'title': 'A'}"]
+'''
 def test_milvus_query_time(query):
-    embeddings = create_embeddings_openai([query])
+    embeddings = create_embeddings_angle({'text':query})
+    print(embeddings.shape)
+
+    connect_to_milvus()
+    
+    collection = Collection("angle")
+    collection.load()
 
     start = time.perf_counter()
-    result = query_milvus(embeddings, "openai", 10, {"nprobe": 16})
+    result = query_milvus(collection, [embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
     end = time.perf_counter()
 
     print(f'Milvus query took {end - start} seconds')
@@ -162,6 +179,7 @@ def test_milvus_query_time(query):
 # test_angle_query_embedding_time('What do I call the farming of seafood?')
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
+setup_milvus_for_AnglE()
 test_milvus_upsert_time()
 test_milvus_query_time('What do I call the farming of seafood?')
 
