@@ -33,12 +33,14 @@ def test_angle_embedding_time():
     wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
     wikipedia = wikipedia[:1000]
     wikipedia = wikipedia[['title', 'text']]
-    labelled = []
-    for row in wikipedia['text']:
-        labelled.append({'text': row})
 
+    batch_size = 100
+    embeddings = []
     start = time.perf_counter()
-    embeddings = create_embeddings_angle(labelled)
+    for i in range(0, len(wikipedia['text']), batch_size):
+        batch = [{'text': row} for row in wikipedia['text'][i:i+batch_size]]
+        embeddings.extend(create_embeddings_angle(batch))
+
     end = time.perf_counter()
 
     torch.save(embeddings, 'embeddings_angle.pt')
@@ -174,17 +176,17 @@ Milvus query took 0.24138000000675675 seconds
 "id: 3, distance: 203.3989715576172, entity: {'title': 'A'}"]
 '''
 def test_milvus_query_time(query):    
-    collection = Collection("UAE_huggingface")
+    embeddings = create_embeddings_angle({'text':query})
+    print(embeddings.shape)
+
+    connect_to_milvus()
+
+    collection = Collection("angle")
     collection.load()
 
     start = time.perf_counter()
-    query_embeddings = generate_embeddings_UAE_huggingface(query)
-    end = time.perf_counter()
-
-    print(f'UAE query embeddings took {end - start} seconds')
-
-    start = time.perf_counter()
-    result = query_milvus(collection, [query_embeddings], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+    result = query_milvus(embeddings, "openai", 10, {"nprobe": 16})
+    result = query_milvus(collection, [embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
     end = time.perf_counter()
 
     print(f'Milvus query took {end - start} seconds')
