@@ -8,6 +8,7 @@ from embedding import create_embeddings_openai, create_embeddings_angle
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
 from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus, drop_milvus_collection
 from pymilvus import FieldSchema, DataType, Collection
+from huggingface_embeddings import generate_embeddings_UAE_huggingface
 import torch
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
@@ -43,6 +44,19 @@ def test_angle_embedding_time():
     torch.save(embeddings, 'embeddings_angle.pt')
 
     print(f'AnglE embeddings took {end - start} seconds')
+
+def test_UAE_embedding_time():
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    wikipedia = wikipedia[['title', 'text']]
+
+    start = time.perf_counter()
+    embeddings = []
+    for row in wikipedia['text']:
+        embeddings.append(generate_embeddings_UAE_huggingface(row))
+    end = time.perf_counter()
+
+    print(f'UAE embeddings took {end - start} seconds')
 
 # AnglE query embeddings took 5.134554299991578 seconds (Non-GPU machine)
 # Seems like the model takes a while to load
@@ -159,27 +173,101 @@ Milvus query took 0.24138000000675675 seconds
 ["id: 916, distance: 203.069091796875, entity: {'title': 'Million'}", 
 "id: 3, distance: 203.3989715576172, entity: {'title': 'A'}"]
 '''
-def test_milvus_query_time(query):
-    embeddings = create_embeddings_angle({'text':query})
-    print(embeddings.shape)
-
-    connect_to_milvus()
-    
-    collection = Collection("angle")
+def test_milvus_query_time(query):    
+    collection = Collection("UAE_huggingface")
     collection.load()
 
     start = time.perf_counter()
-    result = query_milvus(collection, [embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+    query_embeddings = generate_embeddings_UAE_huggingface(query)
+    end = time.perf_counter()
+
+    print(f'UAE query embeddings took {end - start} seconds')
+
+    start = time.perf_counter()
+    result = query_milvus(collection, [query_embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+    end = time.perf_counter()
+
+    print(f'Milvus query took {end - start} seconds')
+    print(result)
+"""
+UAE embeddings took 304.0680951999966 seconds
+Milvus upsert took 2.5230127000104403 seconds
+UAE query embeddings took 0.4172201000037603 seconds
+Milvus query took 0.41844780000974424 seconds
+["id: 419, distance: 0.9305093288421631, entity: {'title': 'United States customary units'}", 
+"id: 676, distance: 0.9305093288421631, entity: {'title': 'Telford United F.C.'}", 
+"id: 38, distance: 0.9595455527305603, entity: {'title': 'Boot device'}"]
+"""
+def test_UAE_with_milvus(query):
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    labels = wikipedia[['title']]
+
+    start = time.perf_counter()
+    embeddings = []
+    for row in wikipedia['text']:
+        embeddings.append(generate_embeddings_UAE_huggingface(row))
+    end = time.perf_counter()
+
+    print(f'UAE embeddings took {end - start} seconds')
+
+    for label in labels:
+        # remove non-ascii characters
+        labels.loc[:, label] = labels[label].str.encode('ascii', 'ignore').str.decode('ascii')
+
+    connect_to_milvus()
+
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=1024),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+    ]
+    description = "UAE_huggingface embeddings"
+    drop_milvus_collection("UAE_huggingface")
+    create_milvus_collection("UAE_huggingface", fields, description)
+
+    entries = [
+        [str(i) for i in range(len(labels))],
+        embeddings,
+        labels['title'].tolist()
+    ]
+
+    start = time.perf_counter()
+    upsert_milvus(entries, "UAE_huggingface")
+    create_milvus_index("UAE_huggingface", "embeddings", "IVF_FLAT", "L2", {"nlist": 128})
+    end = time.perf_counter()
+
+    print(f'Milvus upsert took {end - start} seconds')
+    
+    collection = Collection("UAE_huggingface")
+    collection.load()
+
+    start = time.perf_counter()
+    query_embeddings = generate_embeddings_UAE_huggingface(query)
+    end = time.perf_counter()
+
+    print(f'UAE query embeddings took {end - start} seconds')
+
+    start = time.perf_counter()
+    result = query_milvus(collection, [query_embeddings], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
     end = time.perf_counter()
 
     print(f'Milvus query took {end - start} seconds')
     print(result)
 
+def titles_file():
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    labels = wikipedia[['title']]
+    labels.to_csv('titles.csv', index=False)
+
 # test_openai_embedding_time()
 # test_angle_query_embedding_time('What do I call the farming of seafood?')
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
-setup_milvus_for_AnglE()
-test_milvus_upsert_time()
-test_milvus_query_time('What do I call the farming of seafood?')
-
+# setup_milvus_for_AnglE()
+# test_milvus_upsert_time()
+# test_milvus_query_time('What do I call the farming of seafood?')
+# test_UAE_embedding_time()
+test_UAE_with_milvus('What do I call the farming of seafood?')
+# titles_file()
