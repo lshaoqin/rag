@@ -35,7 +35,7 @@ def test_angle_embedding_time():
     wikipedia = wikipedia[['title', 'text']]
     labelled = []
     for row in wikipedia['text']:
-        labelled.append({'text': row[1]})
+        labelled.append({'text': row})
 
     start = time.perf_counter()
     embeddings = create_embeddings_angle(labelled)
@@ -184,7 +184,7 @@ def test_milvus_query_time(query):
     print(f'UAE query embeddings took {end - start} seconds')
 
     start = time.perf_counter()
-    result = query_milvus(collection, [query_embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+    result = query_milvus(collection, [query_embeddings], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
     end = time.perf_counter()
 
     print(f'Milvus query took {end - start} seconds')
@@ -263,11 +263,12 @@ def titles_file():
 
 # test_openai_embedding_time()
 # test_angle_query_embedding_time('What do I call the farming of seafood?')
+test_angle_embedding_time()
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
 # setup_milvus_for_AnglE()
 # test_milvus_upsert_time()
 # test_milvus_query_time('What do I call the farming of seafood?')
 # test_UAE_embedding_time()
-test_UAE_with_milvus('What do I call the farming of seafood?')
+# test_UAE_with_milvus('What do I call the farming of seafood?')
 # titles_file()
