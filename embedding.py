@@ -9,8 +9,11 @@ def create_embeddings_openai(texts):
     embeddings = embeddings_model.embed_documents(texts)
     return embeddings
 
-def create_embeddings_angle(texts):
+def load_angle():
     angle = AnglE.from_pretrained('WhereIsAI/UAE-Large-V1', pooling_strategy='cls').cuda()
     angle.set_prompt(prompt=Prompts.C)
+    return angle
+
+def create_embeddings_angle(texts, angle):
     embeddings = angle.encode(texts, to_numpy=True)
     return embeddings

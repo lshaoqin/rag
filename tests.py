@@ -4,7 +4,7 @@
 import pyarrow.parquet as pq
 import numpy as np
 import time
-from embedding import create_embeddings_openai, create_embeddings_angle
+from embedding import create_embeddings_openai, create_embeddings_angle, load_angle
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
 from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus, drop_milvus_collection
 from pymilvus import FieldSchema, DataType, Collection
@@ -28,18 +28,19 @@ def test_openai_embedding_time():
         for item in embeddings:
             f.write("%s\n" % item)
 
-# AnglE embeddings took 82.96513290004805 seconds (Non-GPU machine)
+# AnglE embeddings took 8419.04911589995 seconds (Non-GPU machine)
 def test_angle_embedding_time():
     wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
     wikipedia = wikipedia[:1000]
     wikipedia = wikipedia[['title', 'text']]
 
+    angle = load_angle()
     batch_size = 100
     embeddings = []
     start = time.perf_counter()
     for i in range(0, len(wikipedia['text']), batch_size):
         batch = [{'text': row} for row in wikipedia['text'][i:i+batch_size]]
-        embeddings.extend(create_embeddings_angle(batch))
+        embeddings.extend(create_embeddings_angle(batch, angle))
 
     end = time.perf_counter()
 
