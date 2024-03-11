@@ -158,7 +158,7 @@ def test_milvus_upsert_time():
     # join the labels and embeddings
     entries = [
         [str(i) for i in range(len(labels))],
-        embeddings.tolist(),
+        embeddings,
         labels['title'].tolist()
     ]
 
@@ -172,13 +172,14 @@ def test_milvus_upsert_time():
     print(f'Milvus upsert took {end - start} seconds')
 
 '''
-Milvus query took 0.24138000000675675 seconds
-["id: 916, distance: 203.069091796875, entity: {'title': 'Million'}", 
-"id: 3, distance: 203.3989715576172, entity: {'title': 'A'}"]
+Milvus query took 0.29721500002779067 seconds
+["id: 15, distance: 131.3168487548828, entity: {'title': 'Aquaculture'}", 
+"id: 152, distance: 214.14505004882812, entity: {'title': 'Farm'}", 
+"id: 681, distance: 236.52586364746094, entity: {'title': 'Gardening'}"]
 '''
 def test_milvus_query_time(query):    
-    embeddings = create_embeddings_angle({'text':query})
-    print(embeddings.shape)
+    angle = load_angle()
+    embeddings = create_embeddings_angle({'text':query}, angle)
 
     connect_to_milvus()
 
@@ -186,7 +187,6 @@ def test_milvus_query_time(query):
     collection.load()
 
     start = time.perf_counter()
-    result = query_milvus(embeddings, "openai", 10, {"nprobe": 16})
     result = query_milvus(collection, [embeddings.tolist()[0]], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
     end = time.perf_counter()
 
@@ -266,12 +266,12 @@ def titles_file():
 
 # test_openai_embedding_time()
 # test_angle_query_embedding_time('What do I call the farming of seafood?')
-test_angle_embedding_time()
+# test_angle_embedding_time()
 # test_pinecone_upsert_time()
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
 # setup_milvus_for_AnglE()
 # test_milvus_upsert_time()
-# test_milvus_query_time('What do I call the farming of seafood?')
+test_milvus_query_time('What do I call the farming of seafood?')
 # test_UAE_embedding_time()
 # test_UAE_with_milvus('What do I call the farming of seafood?')
 # titles_file()
