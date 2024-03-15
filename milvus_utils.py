@@ -1,7 +1,7 @@
 # Connect to milvus server
 # Credit to this tutorial by Stephen Collins for information on setting up milvus and text embedding
 # https://dev.to/stephenc222/how-to-use-milvus-to-store-and-query-vector-embeddings-5hhl
-from pymilvus import connections
+from pymilvus import connections, utility
 from pymilvus import FieldSchema, CollectionSchema, DataType, Collection
 
 def connect_to_milvus():
@@ -18,8 +18,12 @@ def create_milvus_collection(name, fields, description):
     return collection
 
 def drop_milvus_collection(name):
-    collection = Collection(name)
-    collection.drop()
+    if utility.has_collection(name):
+        collection = Collection(name)
+        collection.drop()
+        print(f"Collection {name} dropped.")
+    else:
+        print(f"Collection {name} does not exist.")
 
 def upsert_milvus(entities, name):
     collection = Collection(name)

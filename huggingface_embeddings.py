@@ -18,8 +18,8 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 # Initialize tokenizer and model for UAE_Large
-tokenizer = AutoTokenizer.from_pretrained('WhereIsAI/UAE-Large-V1')
-model = AutoModel.from_pretrained('WhereIsAI/UAE-Large-V1')
+tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L6-v2') # WhereIsAI/UAE-Large-V1
+model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
 
 
 def average_pool(last_hidden_states: Tensor, attention_mask: Tensor) -> Tensor:

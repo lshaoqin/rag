@@ -143,6 +143,18 @@ def setup_milvus_for_AnglE():
     drop_milvus_collection("angle")
     create_milvus_collection("angle", fields, description)
 
+def setup_milvus_for_miniLM():
+    connect_to_milvus()
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+    ]
+    description = "miniLM embeddings"
+
+    drop_milvus_collection("miniLM")
+    create_milvus_collection("miniLM", fields, description)
+
 # Milvus upsert took 1.2594313000008697 seconds
 def test_milvus_upsert_time():
     wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
@@ -171,15 +183,55 @@ def test_milvus_upsert_time():
 
     print(f'Milvus upsert took {end - start} seconds')
 
+# Milvus upsert took 0.6925161000108346 seconds
+def test_miniLM_milvus_upsert_time():
+    wikipedia = pq.read_table('train-00000-of-00001.parquet').to_pandas()
+    wikipedia = wikipedia[:1000]
+    labels = wikipedia[['title']]
+
+    for label in labels:
+        # remove non-ascii characters
+        labels.loc[:, label] = labels[label].str.encode('ascii', 'ignore').str.decode('ascii')
+
+    embeddings = []
+    with open('embeddings_miniLM.txt', 'r') as f:
+        for line in f:
+            embeddings.append(line.strip())
+
+    embeddings = [[float(value) for value in embedding[2:-3].split(", ")] for embedding in embeddings]
+
+    # join the labels and embeddings
+    entries = [
+        [str(i) for i in range(len(labels))],
+        embeddings,
+        labels['title'].tolist()
+    ]
+
+    connect_to_milvus()
+
+    start = time.perf_counter()
+    upsert_milvus(entries, "miniLM")
+    create_milvus_index("miniLM", "embeddings", "IVF_FLAT", "L2", {"nlist": 128})
+    end = time.perf_counter()
+
+    print(f'Milvus upsert took {end - start} seconds')
+
 '''
 Milvus query took 0.29721500002779067 seconds
+
+Question: What do I call the farming of seafood?
+Results:
+-----------
 ["id: 15, distance: 131.3168487548828, entity: {'title': 'Aquaculture'}", 
 "id: 152, distance: 214.14505004882812, entity: {'title': 'Farm'}", 
 "id: 681, distance: 236.52586364746094, entity: {'title': 'Gardening'}"]
 '''
 def test_milvus_query_time(query):    
     angle = load_angle()
+    start = time.perf_counter()
     embeddings = create_embeddings_angle({'text':query}, angle)
+    end = time.perf_counter()
+    print(f'AnglE query embeddings took {end - start} seconds')
 
     connect_to_milvus()
 
@@ -192,6 +244,41 @@ def test_milvus_query_time(query):
 
     print(f'Milvus query took {end - start} seconds')
     print(result)
+"""
+UAE query embeddings took 0.12753679999150336 seconds
+Milvus query took 4.964185399992857 seconds
+
+Question: What do I call the farming of seafood?
+["id: 15, distance: 0.6420995593070984, entity: {'title': 'Aquaculture'}", 
+"id: 152, distance: 1.0668574571609497, entity: {'title': 'Farm'}", 
+"id: 144, distance: 1.1673609018325806, entity: {'title': 'Food'}"]
+
+UAE query embeddings took 0.018805400002747774 seconds
+Milvus query took 0.2408407999901101 seconds
+
+Question: How do I look up the words in a language?
+["id: 110, distance: 1.0673458576202393, entity: {'title': 'Dictionary'}", 
+"id: 489, distance: 1.1954866647720337, entity: {'title': 'Tone language'}", 
+"id: 424, distance: 1.1982413530349731, entity: {'title': 'Vocabulary'}"]
+"""
+def test_miniLM_milvus_query_time(query):
+    start = time.perf_counter()
+    embeddings = generate_embeddings_UAE_huggingface(query)
+    end = time.perf_counter()
+    print(f'UAE query embeddings took {end - start} seconds')
+
+    connect_to_milvus()
+
+    collection = Collection("miniLM")
+    collection.load()
+
+    start = time.perf_counter()
+    result = query_milvus(collection, [embeddings], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+    end = time.perf_counter()
+
+    print(f'Milvus query took {end - start} seconds')
+    print(result)
+
 """
 UAE embeddings took 304.0680951999966 seconds
 Milvus upsert took 2.5230127000104403 seconds
@@ -271,7 +358,10 @@ def titles_file():
 # test_pinecone_query_time(['What do I call the farming of seafood?'])
 # setup_milvus_for_AnglE()
 # test_milvus_upsert_time()
-test_milvus_query_time('What do I call the farming of seafood?')
+# test_milvus_query_time('What do I call the farming of seafood?')
 # test_UAE_embedding_time()
 # test_UAE_with_milvus('What do I call the farming of seafood?')
 # titles_file()
+# setup_milvus_for_miniLM()
+# test_miniLM_milvus_upsert_time()
+test_miniLM_milvus_query_time('Where can I look up the words in a language?')
