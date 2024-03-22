@@ -15,6 +15,18 @@ def connect_to_milvus():
 def create_milvus_collection(name, fields, description):
     schema = CollectionSchema(fields, description)
     collection = Collection(name, schema, consistency_level="Strong")
+    print(f"Collection {name} created.")
+    return collection
+
+def create_miniLM_collection(name):
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+    ]
+    description = "MiniLM embeddings"
+    collection = Collection(name, CollectionSchema(fields, description), consistency_level="Strong")
+    print(f"Collection {name} created.")
     return collection
 
 def drop_milvus_collection(name):
@@ -28,16 +40,26 @@ def drop_milvus_collection(name):
 def upsert_milvus(entities, name):
     collection = Collection(name)
     insert_result = collection.insert(entities)
+    print(f"Inserted {len(entities)} entities.")
     return insert_result
 
 def create_milvus_index(collection_name, field_name, index_type, metric_type, params):
     collection = Collection(collection_name)
     index = {"index_type": index_type, "metric_type": metric_type, "params": params}
     collection.create_index(field_name, index)
+    print(f"Index created for {collection_name}.")
 
 def query_milvus(collection, search_vectors, search_field, search_params):
     result = collection.search(search_vectors, search_field, search_params, limit=3, output_fields=["title"])
     return result[0]
+
+def check_collection_exists(name):
+    if utility.has_collection(name):
+        print(f"Collection {name} exists.")
+        return True
+    else:
+        print(f"Collection {name} does not exist.")
+        return False
 
 if __name__ == "__main__":
     connect_to_milvus()
