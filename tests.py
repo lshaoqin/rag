@@ -8,7 +8,7 @@ from embedding import create_embeddings_openai, create_embeddings_angle, load_an
 from pinecone_utils import upsert_pinecone_index, query_pinecone_index
 from milvus_utils import connect_to_milvus, create_milvus_collection, upsert_milvus, create_milvus_index, query_milvus, drop_milvus_collection
 from pymilvus import FieldSchema, DataType, Collection
-from huggingface_embeddings import generate_embeddings_UAE_huggingface
+from huggingface_embeddings import generate_embeddings_MiniLM_huggingface
 import torch
 
 # OpenAI embeddings took 71.25210009992588 seconds, costs ~$0.08
@@ -56,7 +56,7 @@ def test_UAE_embedding_time():
     start = time.perf_counter()
     embeddings = []
     for row in wikipedia['text']:
-        embeddings.append(generate_embeddings_UAE_huggingface(row))
+        embeddings.append(generate_embeddings_MiniLM_huggingface(row))
     end = time.perf_counter()
 
     print(f'UAE embeddings took {end - start} seconds')
@@ -263,7 +263,7 @@ Question: How do I look up the words in a language?
 """
 def test_miniLM_milvus_query_time(query):
     start = time.perf_counter()
-    embeddings = generate_embeddings_UAE_huggingface(query)
+    embeddings = generate_embeddings_MiniLM_huggingface(query)
     end = time.perf_counter()
     print(f'UAE query embeddings took {end - start} seconds')
 
@@ -296,7 +296,7 @@ def test_UAE_with_milvus(query):
     start = time.perf_counter()
     embeddings = []
     for row in wikipedia['text']:
-        embeddings.append(generate_embeddings_UAE_huggingface(row))
+        embeddings.append(generate_embeddings_MiniLM_huggingface(row))
     end = time.perf_counter()
 
     print(f'UAE embeddings took {end - start} seconds')
@@ -333,7 +333,7 @@ def test_UAE_with_milvus(query):
     collection.load()
 
     start = time.perf_counter()
-    query_embeddings = generate_embeddings_UAE_huggingface(query)
+    query_embeddings = generate_embeddings_MiniLM_huggingface(query)
     end = time.perf_counter()
 
     print(f'UAE query embeddings took {end - start} seconds')
