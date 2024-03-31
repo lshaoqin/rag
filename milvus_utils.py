@@ -37,6 +37,14 @@ def drop_milvus_collection(name):
     else:
         print(f"Collection {name} does not exist.")
 
+def generate_entities(embeddings, labels):
+    entities = [
+        [str(i) for i in range(len(labels))],
+        embeddings,
+        labels.tolist()
+    ]
+    return entities
+
 def upsert_milvus(entities, name):
     collection = Collection(name)
     insert_result = collection.insert(entities)
