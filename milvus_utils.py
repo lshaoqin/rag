@@ -18,11 +18,22 @@ def create_milvus_collection(name, fields, description):
     print(f"Collection {name} created.")
     return collection
 
+def create_milvus_collection(name, embeddings_len, labels_len):
+    fields = [
+        FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=embeddings_len),
+        FieldSchema(name="labels", dtype=DataType.VARCHAR, max_length=labels_len),
+    ]
+    description = name + "embeddings"
+    collection = Collection(name, CollectionSchema(fields, description), consistency_level="Strong")
+    print(f"Collection {name} created.")
+    return collection
+
 def create_miniLM_collection(name):
     fields = [
         FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
-        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=768),
-        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="labels", dtype=DataType.VARCHAR, max_length=5000),
     ]
     description = "MiniLM embeddings"
     collection = Collection(name, CollectionSchema(fields, description), consistency_level="Strong")
@@ -33,9 +44,9 @@ def drop_milvus_collection(name):
     if utility.has_collection(name):
         collection = Collection(name)
         collection.drop()
-        print(f"Collection {name} dropped.")
+        return f"Collection {name} dropped."
     else:
-        print(f"Collection {name} does not exist.")
+        return f"Collection {name} does not exist."
 
 def generate_entities(embeddings, labels):
     entities = [
