@@ -12,12 +12,6 @@ def connect_to_milvus():
         print(f"Failed to connect to Milvus: {e}")
         raise
 
-def create_milvus_collection(name, fields, description):
-    schema = CollectionSchema(fields, description)
-    collection = Collection(name, schema, consistency_level="Strong")
-    print(f"Collection {name} created.")
-    return collection
-
 def create_milvus_collection(name, embeddings_len, labels_len):
     fields = [
         FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=100),
