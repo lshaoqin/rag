@@ -41,14 +41,14 @@ def generate_entities(embeddings, labels):
     entities = [
         [str(i) for i in range(len(labels))],
         embeddings,
-        labels.tolist()
+        labels
     ]
     return entities
 
 def upsert_milvus(entities, name):
     collection = Collection(name)
     insert_result = collection.insert(entities)
-    print(f"Inserted {len(entities)} entities.")
+    print(f"Inserted {len(entities[0])} entities.")
     return insert_result
 
 def create_milvus_index(collection_name, field_name, index_type, metric_type, params):
@@ -58,6 +58,8 @@ def create_milvus_index(collection_name, field_name, index_type, metric_type, pa
     print(f"Index created for {collection_name}.")
 
 def query_milvus(collection, search_vectors, search_field, search_params):
+    if isinstance(collection, str):
+        collection = Collection(collection)
     result = collection.search(search_vectors, search_field, search_params, limit=3, output_fields=["title"])
     return result[0]
 

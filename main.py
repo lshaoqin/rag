@@ -3,6 +3,7 @@ from milvus_utils import connect_to_milvus, create_miniLM_collection, upsert_mil
 from chunker import chunk_by_words
 from huggingface_embeddings import generate_embeddings_MiniLM_huggingface
 
+# To start, run uvicorn main:app --reload
 app = FastAPI()
 connect_to_milvus()
 
@@ -10,7 +11,7 @@ connect_to_milvus()
 def read_root():
     return {"Hello": "World"}
 
-@app.post("{collection}/upsert_txt")
+@app.post("/{collection}/upsert_txt")
 async def upsert_txt(collection: str, file: UploadFile, chunk_size: int = 100, overlap_size: int = 50):
     try:
         contents = await file.read()
@@ -30,4 +31,18 @@ async def upsert_txt(collection: str, file: UploadFile, chunk_size: int = 100, o
     except Exception as e:
         return {"error": str(e)}
 
-    return {"result": result}
+    return {"result": str(result)}
+
+@app.post("/{collection}/query")
+async def query(collection: str, text: str):
+    try:
+        if not check_collection_exists(collection):
+            return {"error": "Collection does not exist."}
+
+        embeddings = generate_embeddings_MiniLM_huggingface(text)
+        result = query_milvus(collection, [embeddings], "embeddings", {"metric_type": "L2", "params": {"nprobe": 10}})
+
+    except Exception as e:
+        return {"error": str(e)}
+
+    return {"result": str(result)}
